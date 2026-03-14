@@ -199,6 +199,7 @@ You can set these in your shell before running `docker compose up`:
 
 - `MYSQL_ROOT_PASSWORD` (default: `root`)
 - `MYSQL_DATABASE` (default: `medtrust`)
+- `MYSQL_HOST_PORT` (default: `3306`, use `3307` if `3306` is occupied)
 - `NEXT_PUBLIC_API_URL` (default: `http://localhost:5000/api`)
 - `NEXT_PUBLIC_RAZORPAY_KEY_ID` (default: empty)
 
