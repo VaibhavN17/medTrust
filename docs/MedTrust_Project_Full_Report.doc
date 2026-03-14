@@ -1,0 +1,297 @@
+MEDTRUST PROJECT FULL REPORT
+Date: March 14, 2026
+Repository: https://github.com/VaibhavN17/medTrust.git
+Branch: main
+
+======================================================================
+1. EXECUTIVE SUMMARY
+======================================================================
+MedTrust is a full-stack donation transparency platform focused on
+medical fundraising. It enables patients to create campaigns, NGOs/admins
+to verify and moderate those campaigns, and donors to contribute through
+Razorpay with visibility into expenses and updates.
+
+The project currently includes:
+- A Node.js + Express + MySQL backend API
+- A Next.js frontend web application (App Router)
+- Dockerized deployment for frontend, backend, and MySQL
+- Role-based workflows for patient, donor, ngo, and admin
+- Donation flow with signature verification and receipts
+
+Operational status at report time:
+- Backend container running and healthy on port 5000
+- Frontend container running on port 3000
+- MySQL container healthy, exposed on host port 3307
+
+======================================================================
+2. PROJECT OBJECTIVES AND BUSINESS VALUE
+======================================================================
+Primary objective:
+- Build trust in medical crowdfunding through verification and spend
+  transparency.
+
+Key value propositions:
+- Verified campaigns before fundraising activation
+- Every donation mapped to a campaign and payment status
+- Expense receipts and update timelines visible to donors/public
+- Fraud-flag mechanism and admin oversight controls
+
+======================================================================
+3. TECHNICAL STACK
+======================================================================
+Frontend:
+- Next.js 14 (React 18, TypeScript)
+- Tailwind CSS
+- Zustand for client auth state
+- Axios for API communication
+- Razorpay checkout integration
+
+Backend:
+- Node.js + Express
+- MySQL 8 (mysql2)
+- JWT-based authentication
+- express-validator for request validation
+- multer / multer-s3 for file uploads
+- Nodemailer for email notifications
+- Razorpay SDK for payment order and verification
+
+Infrastructure and operations:
+- Docker + Docker Compose
+- MySQL container with schema bootstrap from schema.sql
+- Separate frontend and backend Docker images
+
+======================================================================
+4. REPOSITORY AND DELIVERY SNAPSHOT
+======================================================================
+Recent commit timeline:
+- 1c7a887 Merge branch 'main' of https://github.com/VaibhavN17/medTrust
+- 30a1a09 Add Docker setup, gitignore, and Rs 1 donation support
+- 5c5fc6b Initial commit
+
+Current deployment snapshot:
+- medtrust-frontend image built and running
+- medtrust-backend image built and running
+- mysql:8.0 image running and healthy
+
+======================================================================
+5. SYSTEM ARCHITECTURE
+======================================================================
+High-level flow:
+1) User interacts with Next.js frontend.
+2) Frontend calls backend REST API at /api/*.
+3) Backend enforces JWT auth, role guards, validation, and business rules.
+4) Data persists in MySQL.
+5) Razorpay handles payment collection; backend verifies signatures.
+6) Backend updates donation and campaign totals, sends email receipt.
+
+Primary components:
+- Frontend UI and role-based dashboards
+- Backend API controllers and middleware
+- MySQL relational schema for users/campaigns/donations/expenses
+- Optional local or S3-backed file uploads
+
+======================================================================
+6. FEATURE INVENTORY
+======================================================================
+Authentication and profile:
+- Register/login
+- JWT session validation
+- Profile update, avatar upload, password change
+
+Campaign lifecycle:
+- Campaign create/update/list/detail
+- Document upload for medical proof
+- Campaign updates/timeline posts
+- Verification/rejection workflows via NGO/admin
+
+Donation and payment:
+- Donation order creation
+- Razorpay signature verification
+- Captured-payment persistence
+- Donor donation history
+- Public campaign donor list
+- Minimum donation support: Rs 1
+
+Transparency and governance:
+- Expense record and receipt uploads
+- Fraud flagging and status management
+- Admin statistics and moderation screens
+
+Email notifications:
+- Welcome, campaign status, donation receipt workflows
+
+======================================================================
+7. API SURFACE SUMMARY
+======================================================================
+Measured route definitions in backend router: 28
+
+Domain groupings:
+- Auth
+  /auth/register, /auth/login, /auth/me, /auth/profile, /auth/password
+
+- Campaigns
+  /campaigns, /campaigns/mine, /campaigns/:id,
+  /campaigns/:campaign_id/documents,
+  /campaigns/:campaign_id/updates
+
+- Donations
+  /donations/order, /donations/verify, /donations/mine,
+  /campaigns/:campaign_id/donations
+
+- Expenses
+  /campaigns/:campaign_id/expenses (GET/POST)
+
+- NGO
+  /ngo/pending, /ngo/verify/:id, /ngo/reject/:id, /ngo/flag/:campaign_id
+
+- Admin
+  /admin/stats, /admin/users, /admin/users/:id/toggle,
+  /admin/campaigns, /admin/fraud-flags, /admin/fraud-flags/:id
+
+======================================================================
+8. DATABASE DESIGN SUMMARY
+======================================================================
+Measured tables in schema.sql: 10
+
+Core entities:
+- users
+- ngo_profiles
+- campaigns
+- documents
+- donations
+- expenses
+- campaign_updates
+- ngo_verifications
+- fraud_flags
+- notifications
+
+Key design notes:
+- Role model supports patient/donor/ngo/admin
+- FK constraints enforce referential integrity
+- Donation table records payment IDs and verification signature
+- Campaign table tracks verification status and raised amount
+- Full-text index supports campaign search in key text fields
+
+======================================================================
+9. FRONTEND IMPLEMENTATION STATUS
+======================================================================
+Measured page routes in app directory: 15
+
+Available route groups include:
+- Public marketing and information pages
+- Campaign browse/detail/create routes
+- Auth pages (login/register)
+- Role dashboards (patient/donor/admin)
+- Profile and policy pages (privacy/terms/contact/about)
+
+UI and UX notes:
+- Responsive layout patterns using Tailwind
+- Notification toasts integrated globally
+- Axios interceptor auto-attaches JWT and handles 401 logout
+
+======================================================================
+10. SECURITY AND COMPLIANCE CONTROLS
+======================================================================
+Implemented controls:
+- JWT-protected endpoints for authenticated actions
+- Role-based authorization guard
+- Input validation via express-validator
+- Helmet security headers
+- Rate limiting (auth-focused + global)
+- Payment signature verification using HMAC
+- File upload restrictions and middleware-level handling
+
+Observations:
+- Environment secret loading is enforced for JWT secret
+- API includes dedicated health endpoint for monitoring
+
+======================================================================
+11. DEVOPS, DOCKER, AND OPERATIONS
+======================================================================
+Docker artifacts:
+- backend/Dockerfile
+- frontend/Dockerfile
+- docker-compose.yml
+- backend/.dockerignore
+- frontend/.dockerignore
+
+Compose services:
+- mysql
+- backend
+- frontend
+
+Operational enhancements completed:
+- Added configurable MYSQL_HOST_PORT in compose file
+- Default host mapping remains 3306; fallback 3307 used successfully
+
+Current validated access points:
+- Frontend: http://localhost:3000
+- Backend health: http://localhost:5000/health
+- MySQL host port: 3307 -> container 3306
+
+======================================================================
+12. QUALITY, TESTING, AND RELIABILITY STATUS
+======================================================================
+Current quality signals:
+- Frontend production build succeeds in Docker
+- Backend image build succeeds in Docker
+- Containers start successfully with compose
+- Health endpoint returns OK
+
+Gaps identified:
+- No automated unit/integration test suite detected
+- No CI pipeline definitions detected in repository
+- npm audit output during builds indicates high-severity advisories
+  in dependency graph; requires dependency maintenance plan
+
+======================================================================
+13. KEY RISKS AND MITIGATION RECOMMENDATIONS
+======================================================================
+Risk 1: Dependency vulnerabilities
+- Mitigation: run regular npm audit reviews and pin/update vulnerable
+  dependencies after compatibility checks.
+
+Risk 2: Missing automated tests
+- Mitigation: add baseline tests for auth, campaign, and donation flow,
+  then expand to regression suite.
+
+Risk 3: Operational config drift
+- Mitigation: maintain standardized .env templates and add deployment
+  checklists for local, staging, and production.
+
+Risk 4: Payment and reconciliation edge cases
+- Mitigation: add reconciliation job/report for pending vs captured
+  donations and idempotency checks around verification callbacks.
+
+======================================================================
+14. IMPROVEMENT ROADMAP (RECOMMENDED)
+======================================================================
+Phase A (Immediate):
+- Add CI workflow for lint, build, and basic API smoke tests
+- Add test coverage for auth + donation verification
+- Introduce dependency update policy
+
+Phase B (Short term):
+- Add centralized structured logging and request correlation IDs
+- Add database migration strategy beyond schema bootstrap
+- Add role-specific analytics and export reports
+
+Phase C (Medium term):
+- Add fraud-scoring support (rule-based first, ML later)
+- Add stronger observability (metrics dashboards, alerts)
+- Harden production deployment and backup strategy
+
+======================================================================
+15. CONCLUSION
+======================================================================
+MedTrust has a strong and practical foundation for transparent medical
+fundraising. The architecture, role-based workflows, payment verification,
+and Dockerized runtime are already in place and operational.
+
+The next high-impact step is to improve engineering maturity through
+automated tests, CI/CD, and dependency hygiene while preserving current
+feature velocity.
+
+======================================================================
+END OF REPORT
+======================================================================
