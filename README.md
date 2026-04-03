@@ -381,6 +381,76 @@ Set all `NEXT_PUBLIC_*` env vars in Vercel dashboard.
 
 ---
 
+## 🤖 AI Fraud Detection (Phase 6)
+
+MedTrust includes an integrated **FastAPI-powered ML microservice** for intelligent fraud detection.
+
+### Features
+- **Campaign Analysis** — Detect suspicious language, amount outliers, generic descriptions
+- **Document Verification** — Authenticate medical documents for forgery/tampering
+- **Duplicate Account Detection** — Identify multiple accounts from same person
+- **Donation Pattern Analysis** — Spot bot-like behavior and unusual giving patterns
+
+### Quick Start
+
+```bash
+# From project root
+cd ml-service
+
+# Local development
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+
+# Visit API docs
+# http://localhost:8000/docs
+```
+
+### Docker Compose
+
+```bash
+# Includes ml-service automatically
+docker compose up -d --build
+
+# Services:
+# - Frontend: http://localhost:3000
+# - Backend API: http://localhost:5000
+# - ML Service: http://localhost:8000
+```
+
+### Configuration
+
+**`backend/.env`**
+```env
+ML_SERVICE_URL=http://localhost:8000  # Local dev
+# ML_SERVICE_URL=http://ml-service:8000  # Docker
+FRAUD_THRESHOLD=0.7  # Flag campaigns with score > 0.7
+```
+
+### API Example
+
+```javascript
+// From backend controller
+const { analyzeCampaignForFraud } = require('../controllers/fraudController');
+
+// Analyze new campaign for fraud
+const result = await analyzeCampaignForFraud(campaignId);
+// Returns: { fraud_risk_score: 0.15, flagged: false, factors: {...} }
+```
+
+### Fraud Score Reference
+
+| Score | Risk | Action |
+|-------|------|--------|
+| 0.0-0.3 | Low | Auto-approve |
+| 0.3-0.7 | Medium | Optional manual review |
+| 0.7-1.0 | High | Auto-flag for admin review |
+
+See [ml-service/README.md](ml-service/README.md) for detailed documentation.
+
+---
+
 ## 🗺️ Development Roadmap
 
 - [x] Phase 1 — Auth (JWT, roles)
@@ -388,7 +458,7 @@ Set all `NEXT_PUBLIC_*` env vars in Vercel dashboard.
 - [x] Phase 3 — Donations (Razorpay integration)
 - [x] Phase 4 — Expense transparency (receipts, donor view)
 - [x] Phase 5 — Admin/NGO verification panel
-- [ ] Phase 6 — AI fraud detection (ML model)
+- [x] Phase 6 — AI fraud detection (ML model) → FastAPI microservice
 - [ ] Phase 7 — Blockchain donation records (Ethereum)
 - [ ] Phase 8 — Mobile app (React Native)
 
