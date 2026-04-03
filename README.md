@@ -114,8 +114,9 @@ Get-Content backend/schema.sql | mysql -u root -p
 **`backend/.env`**
 ```env
 PORT=5000
+HOST=0.0.0.0
 NODE_ENV=development
-CLIENT_URL=http://localhost:3000
+CLIENT_URL=http://localhost:3000,http://192.168.1.10:3000
 
 DB_HOST=localhost
 DB_PORT=3306
@@ -149,7 +150,8 @@ If you are developing locally and do not have valid AWS keys, keep `UPLOAD_PROVI
 
 **`frontend/.env.local`**
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
+# Leave empty to auto-use current host as http(s)://<current-host>:5000/api
+NEXT_PUBLIC_API_URL=
 NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxxx
 ```
 
@@ -200,7 +202,8 @@ You can set these in your shell before running `docker compose up`:
 - `MYSQL_ROOT_PASSWORD` (default: `root`)
 - `MYSQL_DATABASE` (default: `medtrust`)
 - `MYSQL_HOST_PORT` (default: `3306`, use `3307` if `3306` is occupied)
-- `NEXT_PUBLIC_API_URL` (default: `http://localhost:5000/api`)
+- `CLIENT_URL` (default: `*`, set this to your explicit frontend origin(s) in production)
+- `NEXT_PUBLIC_API_URL` (default: empty, frontend auto-uses current host + `:5000/api`)
 - `NEXT_PUBLIC_RAZORPAY_KEY_ID` (default: empty)
 
 ---

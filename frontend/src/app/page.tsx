@@ -1,6 +1,11 @@
+"use client";
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Heart, Shield, Eye, TrendingUp, CheckCircle2, ArrowRight, Star, Users, IndianRupee } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
+import api from '@/lib/api';
+import { fmtINR, progress } from '@/lib/utils';
 
 // Static impact numbers (could be fetched from API)
 const STATS = [
@@ -23,7 +28,59 @@ const TESTIMONIALS = [
   { name: 'Dr. Aisha K.', role: 'NGO Partner', text: 'The verification system is thorough yet fast. We\'ve vetted 200+ campaigns and the fraud detection tools are excellent.', stars: 5 },
 ];
 
+type LiveCampaign = {
+  id: number;
+  slug?: string;
+  title: string;
+  hospital_name: string;
+  target_amount: number;
+  collected_amount: number;
+  urgency_level: 'critical' | 'high' | 'medium' | 'low';
+};
+
 export default function HomePage() {
+  const [liveCampaign, setLiveCampaign] = useState<LiveCampaign | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchLiveCampaign = async () => {
+      try {
+        const { data } = await api.get('/campaigns', {
+          params: { status: 'verified', limit: 1, page: 1, sort: 'urgency' },
+        });
+        if (!active) return;
+        setLiveCampaign(data?.data?.[0] || null);
+      } catch {
+        if (!active) return;
+        setLiveCampaign(null);
+      }
+    };
+
+    fetchLiveCampaign();
+    const id = window.setInterval(fetchLiveCampaign, 30000);
+    return () => {
+      active = false;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const livePct = liveCampaign
+    ? progress(Number(liveCampaign.collected_amount), Number(liveCampaign.target_amount))
+    : 77;
+
+  const urgencyLabel = liveCampaign
+    ? liveCampaign.urgency_level.charAt(0).toUpperCase() + liveCampaign.urgency_level.slice(1)
+    : 'Critical';
+
+  const urgencyBadgeClass = liveCampaign?.urgency_level === 'critical'
+    ? 'bg-red-500/20 text-red-300 border-red-500/30'
+    : liveCampaign?.urgency_level === 'high'
+      ? 'bg-orange-500/20 text-orange-300 border-orange-500/30'
+      : liveCampaign?.urgency_level === 'medium'
+        ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+
   return (
     <div className="min-h-screen">
       <Navbar />
@@ -89,20 +146,31 @@ export default function HomePage() {
               <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 p-6 shadow-2xl">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-white/50 text-xs font-medium uppercase tracking-wider">Live Campaign</span>
-                  <span className="badge bg-red-500/20 text-red-300 border-red-500/30">🔴 Critical</span>
+                  <span className={`badge ${urgencyBadgeClass}`}>🔴 {urgencyLabel}</span>
                 </div>
-                <h3 className="text-white font-display font-bold text-xl mb-1">Cardiac Surgery for Arjun, 8</h3>
-                <p className="text-white/50 text-sm mb-5">AIIMS New Delhi · Verified by HealthAid NGO</p>
+                <h3 className="text-white font-display font-bold text-xl mb-1">
+                  {liveCampaign?.title || 'Cardiac Surgery for Arjun, 8'}
+                </h3>
+                <p className="text-white/50 text-sm mb-5">
+                  {liveCampaign?.hospital_name || 'AIIMS New Delhi'} · Verified Campaign
+                </p>
 
                 <div className="mb-3">
                   <div className="flex justify-between text-sm mb-1.5">
-                    <span className="text-white/70">Raised: <strong className="text-white">₹3,84,500</strong></span>
-                    <span className="text-teal-300 font-semibold">77%</span>
+                    <span className="text-white/70">
+                      Raised:{' '}
+                      <strong className="text-white">
+                        {liveCampaign ? fmtINR(Number(liveCampaign.collected_amount)) : '₹3,84,500'}
+                      </strong>
+                    </span>
+                    <span className="text-teal-300 font-semibold">{livePct}%</span>
                   </div>
                   <div className="h-3 rounded-full bg-white/10">
-                    <div className="h-3 rounded-full bg-gradient-to-r from-brand-400 to-teal-400 transition-all" style={{ width: '77%' }} />
+                    <div className="h-3 rounded-full bg-gradient-to-r from-brand-400 to-teal-400 transition-all" style={{ width: `${livePct}%` }} />
                   </div>
-                  <p className="text-white/40 text-xs mt-1.5">Goal: ₹5,00,000</p>
+                  <p className="text-white/40 text-xs mt-1.5">
+                    Goal: {liveCampaign ? fmtINR(Number(liveCampaign.target_amount)) : '₹5,00,000'}
+                  </p>
                 </div>
 
                 {/* Expense preview */}

@@ -13,6 +13,7 @@ export default function DonorDashboard() {
   const [donations, setDonations] = useState<any[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [total,     setTotal]     = useState(0);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchMe();
@@ -21,6 +22,45 @@ export default function DonorDashboard() {
       setTotal(data.reduce((s: number, d: any) => s + Number(d.amount), 0));
     }).finally(() => setLoading(false));
   }, []);
+
+  const downloadReceipt = async (donationId: number) => {
+    setDownloadingId(donationId);
+    try {
+      const { data } = await api.get(`/donations/${donationId}/receipt`);
+      const lines = [
+        'MEDTRUST DONATION RECEIPT',
+        '-------------------------',
+        `Receipt No: ${data.receipt_no}`,
+        `Donation ID: ${data.id}`,
+        `Issued At: ${new Date(data.issued_at).toLocaleString('en-IN')}`,
+        '',
+        'Donor Details',
+        `Name: ${data.donor_name}`,
+        `Email: ${data.donor_email}`,
+        '',
+        'Donation Details',
+        `Campaign: ${data.campaign_title}`,
+        `Amount: ${fmtINR(Number(data.amount))}`,
+        `Currency: ${data.currency}`,
+        `Paid On: ${fmtDate(data.created_at)}`,
+        `Payment Status: ${data.payment_status}`,
+        `Razorpay Payment ID: ${data.razorpay_payment_id || 'N/A'}`,
+        `Razorpay Order ID: ${data.razorpay_order_id || 'N/A'}`,
+        '',
+        'Thank you for supporting transparent medical fundraising.',
+      ];
+
+      const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+      const fileUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = fileUrl;
+      a.download = `${data.receipt_no}.txt`;
+      a.click();
+      URL.revokeObjectURL(fileUrl);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -79,6 +119,9 @@ export default function DonorDashboard() {
                   <div className="text-right flex-shrink-0">
                     <p className="font-display text-xl font-bold text-teal-600">{fmtINR(d.amount)}</p>
                     <p className="text-xs text-slate-400 mt-0.5">{fmtDate(d.created_at)}</p>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Receipt: {d.payment_receipt_id || 'Pending'}
+                    </p>
                   </div>
                 </div>
 
@@ -90,6 +133,14 @@ export default function DonorDashboard() {
                   <Receipt className="w-3.5 h-3.5" /> View expense receipts & campaign updates
                   <ArrowRight className="w-3.5 h-3.5 ml-auto" />
                 </Link>
+
+                <button
+                  onClick={() => downloadReceipt(Number(d.id))}
+                  disabled={downloadingId === d.id}
+                  className="mt-2 text-xs font-medium text-slate-600 hover:text-brand-600 transition-colors disabled:opacity-60"
+                >
+                  {downloadingId === d.id ? 'Preparing receipt...' : 'Download payment receipt'}
+                </button>
                 </div>
               );
             })}

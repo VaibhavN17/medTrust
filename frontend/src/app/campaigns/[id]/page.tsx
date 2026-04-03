@@ -197,18 +197,21 @@ export default function CampaignDetailPage() {
                 {tab === 'donors' && (
                   <div className="space-y-3">
                     {campaign.top_donors?.length === 0 && <p className="text-slate-400 text-sm">No donations yet.</p>}
-                    {campaign.top_donors?.map((d: any, i: number) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-teal-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                          {d.donor_name[0]}
+                    {campaign.top_donors?.map((d: any, i: number) => {
+                      const donorName = d.donor_name || d.name || 'Anonymous';
+                      return (
+                        <div key={i} className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-teal-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                            {donorName[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-slate-800">{donorName}</p>
+                            {d.message && <p className="text-xs text-slate-400 truncate">"{d.message}"</p>}
+                          </div>
+                          <span className="font-bold text-sm text-teal-600">{fmtINR(d.amount)}</span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-slate-800">{d.donor_name}</p>
-                          {d.message && <p className="text-xs text-slate-400 truncate">"{d.message}"</p>}
-                        </div>
-                        <span className="font-bold text-sm text-teal-600">{fmtINR(d.amount)}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

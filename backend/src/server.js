@@ -21,8 +21,38 @@ if (missingRequiredEnv.length) {
 
 // ── Security ──────────────────────────────────────────────────────────────
 app.use(helmet());
+
+const normalizeOrigin = (value) => {
+  if (!value) return value;
+
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname === '127.0.0.1' ? 'localhost' : parsed.hostname;
+    const port = parsed.port ? `:${parsed.port}` : '';
+    return `${parsed.protocol}//${host}${port}`;
+  } catch {
+    return value.replace(/\/+$/, '');
+  }
+};
+
+const allowedOrigins = (process.env.CLIENT_URL || '*')
+  .split(',')
+  .map((origin) => normalizeOrigin(origin.trim()))
+  .filter(Boolean);
+
+const allowedOriginsSet = new Set(allowedOrigins);
+
 app.use(cors({
-  origin:      process.env.CLIENT_URL || '*',
+  origin: (origin, callback) => {
+    // Allow Postman/cURL/server-to-server calls without an Origin header.
+    if (!origin) return callback(null, true);
+
+    if (allowedOriginsSet.has('*') || allowedOriginsSet.has(normalizeOrigin(origin))) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
 }));
 
@@ -62,7 +92,11 @@ app.use('/api', routes);
 app.use(errorHandler);
 
 // ── Start ──────────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 MedTrust API running on port ${PORT} [${process.env.NODE_ENV}]`);
+const PORT = Number(process.env.PORT) || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
+
+app.listen(PORT, HOST, () => {
+  console.log(
+    `🚀 MedTrust API running at ${HOST}:${PORT} [${process.env.NODE_ENV}]`
+  );
 });

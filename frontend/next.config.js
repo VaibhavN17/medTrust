@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: ["http://127.0.0.1:3000", "http://192.168.100.253:3000"],
+
   images: {
     domains: [
       'localhost',
@@ -10,9 +12,10 @@ const nextConfig = {
       'images.unsplash.com',
     ],
   },
+
   env: {
-    NEXT_PUBLIC_API_URL:           process.env.NEXT_PUBLIC_API_URL,
-    NEXT_PUBLIC_RAZORPAY_KEY_ID:   process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_RAZORPAY_KEY_ID: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
   },
 };
 

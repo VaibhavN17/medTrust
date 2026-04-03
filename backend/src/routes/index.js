@@ -89,6 +89,7 @@ router.post('/donations/verify', authenticate, authorize('donor'), [
 ], donation.verifyPayment);
 
 router.get('/donations/mine',                authenticate, authorize('donor'), donation.myDonations);
+router.get('/donations/:id/receipt',         authenticate, authorize('donor'), donation.getReceipt);
 router.get('/campaigns/:campaign_id/donations', donation.campaignDonations);
 
 // ─── EXPENSES ─────────────────────────────────────────────────────────────

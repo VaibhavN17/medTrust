@@ -166,6 +166,7 @@ exports.myDonations = async (req, res, next) => {
   try {
     const [rows] = await db.query(
       `SELECT d.id, d.amount, d.payment_status, d.created_at,
+              d.razorpay_payment_id AS payment_receipt_id,
               c.id AS campaign_id,
               c.title AS campaign_title,
               COALESCE(c.slug, CAST(c.id AS CHAR)) AS campaign_slug,
@@ -177,6 +178,47 @@ exports.myDonations = async (req, res, next) => {
       [req.user.id]
     );
     res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Donor: single donation receipt ───────────────────────────────────────
+exports.getReceipt = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const [rows] = await db.query(
+      `SELECT d.id, d.amount, d.currency, d.created_at,
+              d.razorpay_order_id, d.razorpay_payment_id, d.payment_status,
+              c.id AS campaign_id,
+              c.title AS campaign_title,
+              COALESCE(c.slug, CAST(c.id AS CHAR)) AS campaign_slug,
+              u.name AS donor_name,
+              u.email AS donor_email
+         FROM donations d
+         JOIN campaigns c ON c.id = d.campaign_id
+         JOIN users u ON u.id = d.donor_id
+        WHERE d.id = ? AND d.donor_id = ?
+        LIMIT 1`,
+      [id, req.user.id]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ message: 'Receipt not found' });
+    }
+
+    const receipt = rows[0];
+    if (receipt.payment_status !== 'captured') {
+      return res.status(400).json({ message: 'Payment is not captured yet' });
+    }
+
+    const receiptNo = `MTR-${String(receipt.id).padStart(6, '0')}`;
+    res.json({
+      ...receipt,
+      receipt_no: receiptNo,
+      issued_at: new Date().toISOString(),
+    });
   } catch (err) {
     next(err);
   }

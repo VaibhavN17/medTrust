@@ -1,7 +1,19 @@
 import axios from 'axios';
 
+const getApiBaseUrl = () => {
+  const envBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envBaseUrl && envBaseUrl.trim().length > 0) return envBaseUrl;
+
+  // For LAN access, default to the same host serving the frontend.
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.hostname}:5000/api`;
+  }
+
+  return 'http://localhost:5000/api';
+};
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
+  baseURL: getApiBaseUrl(),
   timeout: 30_000,
 });
 

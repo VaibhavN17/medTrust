@@ -27,6 +27,8 @@ services:
       - ./backend/.env
     environment:
       NODE_ENV: production
+      HOST: 0.0.0.0
+      CLIENT_URL: ${CLIENT_URL:-*}
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: root
@@ -45,7 +47,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000/api}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
         NEXT_PUBLIC_RAZORPAY_KEY_ID: ${NEXT_PUBLIC_RAZORPAY_KEY_ID:-}
     container_name: medtrust-frontend
     restart: unless-stopped
