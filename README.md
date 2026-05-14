@@ -1,6 +1,10 @@
 # MedTrust – Unified Donation Transparency System
 
-> A full-stack platform where patients raise medical funds, NGOs verify campaigns, and donors track every rupee in real-time.
+A full-stack platform where patients raise medical funds, NGOs verify campaigns, and donors track every rupee in real-time.
+
+## 📋 Project Description
+
+MedTrust is a healthcare transparency platform addressing critical gaps in medical fundraising. Patients facing catastrophic expenses can create verified campaigns, donors contribute with confidence, and NGOs validate legitimacy. We tackled fraud prevention through AI-powered analysis (FastAPI microservice) detecting suspicious patterns in campaign language, medical documents, and donation behavior. Payment security uses Razorpay HMAC verification. Role-based access (patient/donor/ngo/admin) ensures granular control. Challenges included building trust through document authentication, preventing duplicate accounts, scaling securely, and enabling real-time expense tracking. Our solution: JWT authentication, S3 private storage, rate limiting, comprehensive input validation, and donor-visible expense receipts. The platform empowers patients with autonomy while maintaining institutional oversight through NGO verification and AI-driven fraud detection, all containerized for cloud deployment.
 
 ---
 
