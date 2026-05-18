@@ -16,7 +16,29 @@ const hasS3Config = Boolean(
 );
 
 const useS3 = wantsS3 && hasS3Config;
-const localUploadRoot = path.resolve(__dirname, '../../uploads');
+const os = require('os');
+
+// Default local uploads folder inside the repo
+const defaultLocalUploadRoot = path.resolve(__dirname, '../../uploads');
+
+// Choose a writable upload root. Prefer env override, then repo uploads dir.
+// If that path is not writable (serverless/read-only filesystem), fall back to OS temp dir.
+let localUploadRoot = process.env.LOCAL_UPLOAD_ROOT || defaultLocalUploadRoot;
+try {
+  // Ensure directory exists and is writable
+  fs.mkdirSync(localUploadRoot, { recursive: true });
+  fs.accessSync(localUploadRoot, fs.constants.W_OK);
+} catch (err) {
+  // Fallback to tmp when the default location isn't writable (e.g. /var/task)
+  localUploadRoot = path.join(os.tmpdir(), 'medtrust-uploads');
+  try {
+    fs.mkdirSync(localUploadRoot, { recursive: true });
+  } catch (err2) {
+    // If even tmp fails, rethrow original for visibility
+    console.error('[WARN] Could not create uploads dir in tmp:', err2.message);
+    throw err;
+  }
+}
 
 const s3 = useS3
   ? new S3Client({
