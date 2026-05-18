@@ -16,7 +16,7 @@ const FRAUD_THRESHOLD = parseFloat(process.env.FRAUD_THRESHOLD || '0.7');
 async function analyzeCampaignForFraud(campaignId) {
   try {
     // Fetch campaign details
-    const [campaigns] = await db.query(
+    const campaignsResult = await db.query(
       `SELECT 
         id, 
         title, 
@@ -24,15 +24,15 @@ async function analyzeCampaignForFraud(campaignId) {
         requested_amount, 
         medical_condition 
       FROM campaigns 
-      WHERE id = ?`,
+      WHERE id = $1`,
       [campaignId]
     );
 
-    if (campaigns.length === 0) {
+    if (campaignsResult.rows.length === 0) {
       throw new Error('Campaign not found');
     }
 
-    const campaign = campaigns[0];
+    const campaign = campaignsResult.rows[0];
 
     // Call ML service
     const mlResponse = await axios.post(
@@ -53,8 +53,8 @@ async function analyzeCampaignForFraud(campaignId) {
     // Update campaign with fraud score
     await db.query(
       `UPDATE campaigns 
-       SET fraud_risk_score = ?, fraud_analysis_timestamp = NOW() 
-       WHERE id = ?`,
+       SET fraud_risk_score = $1, fraud_analysis_timestamp = NOW() 
+       WHERE id = $2`,
       [fraudScore, campaignId]
     );
 
@@ -62,17 +62,17 @@ async function analyzeCampaignForFraud(campaignId) {
     if (fraudScore > FRAUD_THRESHOLD) {
       const reason = mlResponse.data.description || 'High fraud risk score detected';
       
-      const [existingFlags] = await db.query(
+      const existingFlagsResult = await db.query(
         `SELECT id FROM fraud_flags 
-         WHERE campaign_id = ? AND status IN ('PENDING', 'REVIEWING')`,
+         WHERE campaign_id = $1 AND status IN ('PENDING', 'REVIEWING')`,
         [campaignId]
       );
 
-      if (existingFlags.length === 0) {
+      if (existingFlagsResult.rows.length === 0) {
         await db.query(
           `INSERT INTO fraud_flags 
            (campaign_id, reason, severity, status, created_at) 
-           VALUES (?, ?, ?, 'PENDING', NOW())`,
+           VALUES ($1, $2, $3, 'PENDING', NOW())`,
           [campaignId, reason, 'HIGH']
         );
       }
@@ -125,17 +125,17 @@ async function verifyDocumentAuthenticity(filePath, documentType, campaignId) {
 
     // Flag if suspected forgery
     if (!isAuthentic && confidence < 0.6) {
-      const [existingFlags] = await db.query(
+      const existingFlagsResult = await db.query(
         `SELECT id FROM fraud_flags 
-         WHERE campaign_id = ? AND reason LIKE '%document%'`,
+         WHERE campaign_id = $1 AND reason ILIKE '%document%'`,
         [campaignId]
       );
 
-      if (existingFlags.length === 0) {
+      if (existingFlagsResult.rows.length === 0) {
         await db.query(
           `INSERT INTO fraud_flags 
            (campaign_id, reason, severity, status) 
-           VALUES (?, ?, 'MEDIUM', 'PENDING')`,
+           VALUES ($1, $2, 'MEDIUM', 'PENDING')`,
           [campaignId, `Suspicious document detected: ${mlResponse.data.warnings.join(', ')}`]
         );
       }
@@ -160,8 +160,8 @@ async function verifyDocumentAuthenticity(filePath, documentType, campaignId) {
  */
 async function detectDuplicateAccounts() {
   try {
-    // Fetch recent users
-    const [users] = await db.query(
+    // Fetch recent users (PostgreSQL: DATE_SUB → INTERVAL)
+    const usersResult = await db.query(
       `SELECT 
         id, 
         email, 
@@ -169,9 +169,10 @@ async function detectDuplicateAccounts() {
         ip_address, 
         created_at 
       FROM users 
-      WHERE created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
+      WHERE created_at > NOW() - INTERVAL '30 days'
       LIMIT 100`
     );
+    const users = usersResult.rows;
 
     if (users.length === 0) {
       return { has_duplicates: false, clusters: [] };
@@ -192,7 +193,7 @@ async function detectDuplicateAccounts() {
           await db.query(
             `INSERT INTO fraud_flags 
              (campaign_id, reason, severity, status) 
-             VALUES (?, ?, 'MEDIUM', 'PENDING')`,
+             VALUES ($1, $2, 'MEDIUM', 'PENDING')`,
             [null, `User ${userId} matches duplicate pattern: ${cluster.pattern}`]
           );
         }
@@ -217,7 +218,7 @@ async function detectDuplicateAccounts() {
 async function analyzeDonationPatterns(campaignId) {
   try {
     // Fetch donations for campaign
-    const [donations] = await db.query(
+    const donationsResult = await db.query(
       `SELECT 
         id, 
         campaign_id, 
@@ -225,10 +226,11 @@ async function analyzeDonationPatterns(campaignId) {
         amount, 
         created_at as timestamp 
       FROM donations 
-      WHERE campaign_id = ? 
+      WHERE campaign_id = $1 
       ORDER BY created_at ASC`,
       [campaignId]
     );
+    const donations = donationsResult.rows;
 
     if (donations.length === 0) {
       return { is_suspicious: false, anomalies: [] };
@@ -245,17 +247,17 @@ async function analyzeDonationPatterns(campaignId) {
     if (mlResponse.data.is_suspicious && mlResponse.data.anomalies.length > 0) {
       const flagReason = `Suspicious donation patterns detected: ${JSON.stringify(mlResponse.data.anomalies)}`;
       
-      const [existingFlags] = await db.query(
+      const existingFlagsResult = await db.query(
         `SELECT id FROM fraud_flags 
-         WHERE campaign_id = ? AND reason LIKE '%donation%'`,
+         WHERE campaign_id = $1 AND reason ILIKE '%donation%'`,
         [campaignId]
       );
 
-      if (existingFlags.length === 0) {
+      if (existingFlagsResult.rows.length === 0) {
         await db.query(
           `INSERT INTO fraud_flags 
            (campaign_id, reason, severity, status) 
-           VALUES (?, ?, 'MEDIUM', 'PENDING')`,
+           VALUES ($1, $2, 'MEDIUM', 'PENDING')`,
           [campaignId, flagReason]
         );
       }
@@ -279,14 +281,15 @@ async function analyzeDonationPatterns(campaignId) {
  */
 async function batchAnalyzeAllCampaigns() {
   try {
-    // Get pending/active campaigns
-    const [campaigns] = await db.query(
+    // Get pending/active campaigns (PostgreSQL: DATE_SUB → INTERVAL)
+    const campaignsResult = await db.query(
       `SELECT id FROM campaigns 
        WHERE status IN ('PENDING', 'ACTIVE') 
        AND (fraud_analysis_timestamp IS NULL 
-            OR fraud_analysis_timestamp < DATE_SUB(NOW(), INTERVAL 7 DAY))
+            OR fraud_analysis_timestamp < NOW() - INTERVAL '7 days')
        LIMIT 50`
     );
+    const campaigns = campaignsResult.rows;
 
     const results = {
       total: campaigns.length,

@@ -10,31 +10,33 @@ exports.list = async (req, res, next) => {
     } = req.query;
 
     const offset = (Number(page) - 1) * Number(limit);
-    const where  = ['c.status = ?'];
+    let paramCount = 1;
+    const where  = [`c.status = $${paramCount++}`];
     const vals   = [status];
 
-    if (disease) { where.push('c.disease LIKE ?');        vals.push(`%${disease}%`); }
-    if (urgency) { where.push('c.urgency_level = ?');     vals.push(urgency); }
-    if (city)    { where.push('c.hospital_city LIKE ?');  vals.push(`%${city}%`); }
-    if (search)  { where.push('MATCH(c.title, c.disease, c.description, c.hospital_name) AGAINST(? IN BOOLEAN MODE)'); vals.push(`${search}*`); }
+    if (disease) { where.push(`c.disease ILIKE $${paramCount++}`);        vals.push(`%${disease}%`); }
+    if (urgency) { where.push(`c.urgency_level = $${paramCount++}`);     vals.push(urgency); }
+    if (city)    { where.push(`c.hospital_city ILIKE $${paramCount++}`);  vals.push(`%${city}%`); }
+    // Note: Full text search using MATCH is MySQL-specific. For PostgreSQL, use ILIKE or tsvector
 
     const sortMap = {
       created_at: 'c.created_at DESC',
-      urgency:    `FIELD(c.urgency_level,'critical','high','medium','low')`,
+      urgency:    `CASE WHEN c.urgency_level='critical' THEN 0 WHEN c.urgency_level='high' THEN 1 WHEN c.urgency_level='medium' THEN 2 ELSE 3 END ASC`,
       progress:   '(c.collected_amount / c.target_amount) DESC',
       deadline:   'c.treatment_deadline ASC',
     };
     const orderBy = sortMap[sort] || 'c.created_at DESC';
 
-    const [[{ total }]] = await db.query(
+    const countResult = await db.query(
       `SELECT COUNT(*) AS total FROM campaigns c WHERE ${where.join(' AND ')}`,
       vals
     );
+    const total = countResult.rows[0].total;
 
-    const [rows] = await db.query(
-          `SELECT c.id,
-            COALESCE(c.slug, CAST(c.id AS CHAR)) AS slug,
-            c.title, c.disease, c.hospital_name, c.hospital_city,
+    const rowsResult = await db.query(
+      `SELECT c.id,
+              COALESCE(c.slug, c.id::text) AS slug,
+              c.title, c.disease, c.hospital_name, c.hospital_city,
               c.target_amount, c.collected_amount, c.urgency_level, c.status,
               c.cover_image_url, c.treatment_deadline, c.created_at,
               u.name AS patient_name
@@ -42,12 +44,12 @@ exports.list = async (req, res, next) => {
          JOIN users u ON u.id = c.patient_id
         WHERE ${where.join(' AND ')}
         ORDER BY ${orderBy}
-        LIMIT ? OFFSET ?`,
+        LIMIT $${paramCount} OFFSET $${paramCount + 1}`,
       [...vals, Number(limit), offset]
     );
 
     res.json({
-      data:  rows,
+      data:  rowsResult.rows,
       total,
       page:  Number(page),
       pages: Math.ceil(total / Number(limit)),
@@ -60,21 +62,21 @@ exports.list = async (req, res, next) => {
 // ── Get single campaign ───────────────────────────────────────────────────
 exports.get = async (req, res, next) => {
   try {
-    const [rows] = await db.query(
+    const rowsResult = await db.query(
       `SELECT c.*, u.name AS patient_name
          FROM campaigns c
          JOIN users u ON u.id = c.patient_id
-        WHERE c.slug = ? OR c.id = ?`,
+        WHERE c.slug = $1 OR c.id = $2`,
       [req.params.id, Number(req.params.id) || 0]
     );
-    if (!rows.length) return res.status(404).json({ message: 'Campaign not found' });
+    if (!rowsResult.rows.length) return res.status(404).json({ message: 'Campaign not found' });
 
-    const campaign = rows[0];
+    const campaign = rowsResult.rows[0];
 
     const safeQuery = async (sql, params) => {
       try {
-        const [result] = await db.query(sql, params);
-        return result;
+        const result = await db.query(sql, params);
+        return result.rows;
       } catch (queryErr) {
         // Keep detail page usable even if optional related tables are out of sync.
         console.error('[WARN] Optional campaign detail query failed:', queryErr.message);
@@ -84,24 +86,24 @@ exports.get = async (req, res, next) => {
 
     // Documents
     const docs = await safeQuery(
-      'SELECT * FROM documents WHERE campaign_id = ?', [campaign.id]
+      'SELECT * FROM documents WHERE campaign_id = $1', [campaign.id]
     );
     // Updates
     const updates = await safeQuery(
       `SELECT cu.*, u.name AS author_name FROM campaign_updates cu
          JOIN users u ON u.id = cu.author_id
-        WHERE cu.campaign_id = ? ORDER BY cu.created_at DESC`,
+        WHERE cu.campaign_id = $1 ORDER BY cu.created_at DESC`,
       [campaign.id]
     );
     // Expenses
     const expenses = await safeQuery(
-      'SELECT * FROM expenses WHERE campaign_id = ? ORDER BY spent_on DESC', [campaign.id]
+      'SELECT * FROM expenses WHERE campaign_id = $1 ORDER BY spent_on DESC', [campaign.id]
     );
     // Top donors (non-anonymous)
     const donors = await safeQuery(
       `SELECT u.name, d.amount, d.message, d.created_at
          FROM donations d JOIN users u ON u.id = d.donor_id
-        WHERE d.campaign_id = ? AND d.payment_status = 'captured' AND d.is_anonymous = 0
+        WHERE d.campaign_id = $1 AND d.payment_status = 'captured' AND d.is_anonymous = false
         ORDER BY d.amount DESC LIMIT 10`,
       [campaign.id]
     );
@@ -124,11 +126,12 @@ exports.create = async (req, res, next) => {
     const slug = `${base}-${Date.now()}`;
     const cover_image_url = req.file?.location || null;
 
-    const [r] = await db.query(
+    const result = await db.query(
       `INSERT INTO campaigns
          (patient_id, title, slug, disease, description, hospital_name, hospital_city,
           hospital_state, target_amount, treatment_deadline, urgency_level, cover_image_url)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       RETURNING id`,
       [
         req.user.id, title, slug, disease, description, hospital_name,
         hospital_city, hospital_state, target_amount,
@@ -136,7 +139,8 @@ exports.create = async (req, res, next) => {
       ]
     );
 
-    res.status(201).json({ id: r.insertId, slug });
+    const id = result.rows[0].id;
+    res.status(201).json({ id, slug });
   } catch (err) {
     next(err);
   }
@@ -146,14 +150,14 @@ exports.create = async (req, res, next) => {
 exports.update = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const [rows] = await db.query(
-      'SELECT patient_id, status FROM campaigns WHERE id = ?', [id]
+    const result = await db.query(
+      'SELECT patient_id, status FROM campaigns WHERE id = $1', [id]
     );
-    if (!rows.length) return res.status(404).json({ message: 'Not found' });
-    if (rows[0].patient_id !== req.user.id && req.user.role !== 'admin') {
+    if (!result.rows.length) return res.status(404).json({ message: 'Not found' });
+    if (result.rows[0].patient_id !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    if (['verified', 'completed'].includes(rows[0].status) && req.user.role !== 'admin') {
+    if (['verified', 'completed'].includes(result.rows[0].status) && req.user.role !== 'admin') {
       return res.status(400).json({ message: 'Cannot edit a verified campaign' });
     }
 
@@ -161,19 +165,20 @@ exports.update = async (req, res, next) => {
       'title','disease','description','hospital_name','hospital_city',
       'hospital_state','target_amount','treatment_deadline','urgency_level',
     ];
+    let paramCount = 1;
     const fields = [];
     const vals   = [];
     for (const key of allowed) {
       if (req.body[key] !== undefined) {
-        fields.push(`${key} = ?`);
+        fields.push(`${key} = $${paramCount++}`);
         vals.push(req.body[key]);
       }
     }
-    if (req.file?.location) { fields.push('cover_image_url = ?'); vals.push(req.file.location); }
+    if (req.file?.location) { fields.push(`cover_image_url = $${paramCount++}`); vals.push(req.file.location); }
     if (!fields.length) return res.status(400).json({ message: 'Nothing to update' });
 
     vals.push(id);
-    await db.query(`UPDATE campaigns SET ${fields.join(', ')} WHERE id = ?`, vals);
+    await db.query(`UPDATE campaigns SET ${fields.join(', ')} WHERE id = $${paramCount}`, vals);
 
     res.json({ message: 'Campaign updated' });
   } catch (err) {
@@ -187,11 +192,12 @@ exports.uploadDocuments = async (req, res, next) => {
     const { campaign_id } = req.params;
     if (!req.files?.length) return res.status(400).json({ message: 'No files uploaded' });
 
-    const [[campaign]] = await db.query(
-      'SELECT id, patient_id, status FROM campaigns WHERE id = ?',
+    const campaignResult = await db.query(
+      'SELECT id, patient_id, status FROM campaigns WHERE id = $1',
       [campaign_id]
     );
-    if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
+    if (!campaignResult.rows.length) return res.status(404).json({ message: 'Campaign not found' });
+    const campaign = campaignResult.rows[0];
 
     const isOwner = campaign.patient_id === req.user.id;
     const isAdmin = req.user.role === 'admin';
@@ -224,9 +230,17 @@ exports.uploadDocuments = async (req, res, next) => {
       f.mimetype,
     ]);
 
+    // PostgreSQL bulk insert
+    const placeholders = rows.map((_, idx) => {
+      const start = idx * 6;
+      return `($${start + 1},$${start + 2},$${start + 3},$${start + 4},$${start + 5},$${start + 6})`;
+    }).join(',');
+    const flatVals = rows.flat();
+
     await db.query(
       `INSERT INTO documents (campaign_id, document_type, file_url, file_name, file_size, mime_type)
-       VALUES ?`, [rows]
+       VALUES ${placeholders}`,
+      flatVals
     );
 
     res.json({ message: `${rows.length} document(s) uploaded` });
@@ -242,11 +256,12 @@ exports.postUpdate = async (req, res, next) => {
     const { title, content } = req.body;
     const image_url = req.file?.location || null;
 
-    const [[campaign]] = await db.query(
-      'SELECT id, patient_id, status FROM campaigns WHERE id = ?',
+    const campaignResult = await db.query(
+      'SELECT id, patient_id, status FROM campaigns WHERE id = $1',
       [campaign_id]
     );
-    if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
+    if (!campaignResult.rows.length) return res.status(404).json({ message: 'Campaign not found' });
+    const campaign = campaignResult.rows[0];
 
     const isOwner = campaign.patient_id === req.user.id;
     const isNgoOrAdmin = req.user.role === 'ngo' || req.user.role === 'admin';
@@ -259,7 +274,7 @@ exports.postUpdate = async (req, res, next) => {
     }
 
     await db.query(
-      'INSERT INTO campaign_updates (campaign_id, author_id, title, content, image_url) VALUES (?,?,?,?,?)',
+      'INSERT INTO campaign_updates (campaign_id, author_id, title, content, image_url) VALUES ($1,$2,$3,$4,$5)',
       [campaign_id, req.user.id, title?.trim() || null, content, image_url]
     );
 
@@ -272,13 +287,13 @@ exports.postUpdate = async (req, res, next) => {
 // ── Patient's own campaigns ────────────────────────────────────────────────
 exports.myCampaigns = async (req, res, next) => {
   try {
-    const [rows] = await db.query(
+    const result = await db.query(
       `SELECT id, slug, title, disease, target_amount, collected_amount,
               status, urgency_level, created_at
-         FROM campaigns WHERE patient_id = ? ORDER BY created_at DESC`,
+         FROM campaigns WHERE patient_id = $1 ORDER BY created_at DESC`,
       [req.user.id]
     );
-    res.json(rows);
+    res.json(result.rows);
   } catch (err) {
     next(err);
   }
