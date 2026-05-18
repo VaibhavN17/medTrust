@@ -1,8 +1,13 @@
 import axios from 'axios';
 
+const withApiSuffix = (baseUrl: string) => {
+  const normalized = baseUrl.trim().replace(/\/+$/, '');
+  return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+};
+
 const getApiBaseUrl = () => {
   const envBaseUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (envBaseUrl && envBaseUrl.trim().length > 0) return envBaseUrl;
+  if (envBaseUrl && envBaseUrl.trim().length > 0) return withApiSuffix(envBaseUrl);
 
   // For browser: try to connect to backend on same host
   if (typeof window !== 'undefined') {
@@ -16,11 +21,11 @@ const getApiBaseUrl = () => {
       return `${window.location.protocol}//${hostname}:5000/api`;
     }
     // For production (Vercel, etc.), use the multi-service route prefix
-    return '/_/backend';
+    return '/_/backend/api';
   }
 
   // For SSR/server-side, use the multi-service route prefix (Vercel)
-  return '/_/backend';
+  return '/_/backend/api';
 };
 
 const api = axios.create({

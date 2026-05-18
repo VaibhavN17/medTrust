@@ -22,7 +22,28 @@ const sql = fs.readFileSync(schemaPath, 'utf8');
   try {
     await client.connect();
     console.log('Connected to database, executing schema...');
-    await client.query(sql);
+
+    // Split SQL into individual statements and run sequentially so we can
+    // ignore objects that already exist and make this script idempotent.
+    const statements = sql
+      .split(/;\s*(?=\n|$)/m)
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    for (const stmt of statements) {
+      try {
+        await client.query(stmt);
+      } catch (err) {
+        const msg = (err.message || '').toString();
+        // Ignore common "already exists" errors so re-running is safe
+        if (/already exists|duplicate key|exists/i.test(msg)) {
+          console.log('Skipping existing object:', msg.split('\n')[0]);
+          continue;
+        }
+        throw err;
+      }
+    }
+
     console.log('Schema applied successfully.');
   } catch (err) {
     console.error('Error applying schema:', err.message || err);
