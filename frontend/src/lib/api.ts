@@ -4,12 +4,23 @@ const getApiBaseUrl = () => {
   const envBaseUrl = process.env.NEXT_PUBLIC_API_URL;
   if (envBaseUrl && envBaseUrl.trim().length > 0) return envBaseUrl;
 
-  // For LAN access, default to the same host serving the frontend.
+  // For browser: try to connect to backend on same host
   if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:5000/api`;
+    const hostname = window.location.hostname;
+    // For local development (localhost or 127.0.0.1), try port 5000
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return `${window.location.protocol}//${hostname}:5000/api`;
+    }
+    // For LAN development, assume backend is on :5000
+    if (hostname.startsWith('192.') || hostname.startsWith('10.')) {
+      return `${window.location.protocol}//${hostname}:5000/api`;
+    }
+    // For production (Vercel, etc.), use the multi-service route prefix
+    return '/_/backend';
   }
 
-  return 'http://localhost:5000/api';
+  // For SSR/server-side, use the multi-service route prefix (Vercel)
+  return '/_/backend';
 };
 
 const api = axios.create({
