@@ -95,8 +95,13 @@ app.use(errorHandler);
 const PORT = Number(process.env.PORT) || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
 
-app.listen(PORT, HOST, () => {
-  console.log(
-    `🚀 MedTrust API running at ${HOST}:${PORT} [${process.env.NODE_ENV}]`
-  );
-});
+if (require.main === module) {
+  app.listen(PORT, HOST, () => {
+    console.log(
+      `🚀 MedTrust API running at ${HOST}:${PORT} [${process.env.NODE_ENV}]`
+    );
+  });
+}
+
+// Export the app for serverless adapters (Vercel, serverless-http, etc.)
+module.exports = app;
