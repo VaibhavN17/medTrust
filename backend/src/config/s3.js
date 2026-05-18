@@ -109,9 +109,22 @@ const makeUploader = (folder, maxMB = 10) => {
     })
     : multer.diskStorage({
       destination: (_req, _file, cb) => {
-        const targetDir = path.join(localUploadRoot, folder);
-        fs.mkdirSync(targetDir, { recursive: true });
-        cb(null, targetDir);
+          let targetDir = path.join(localUploadRoot, folder);
+          try {
+            fs.mkdirSync(targetDir, { recursive: true });
+            fs.accessSync(targetDir, fs.constants.W_OK);
+          } catch (err) {
+            // Fallback to tmp if targetDir is not writable (e.g., /var/task in serverless)
+            const tmpDir = path.join(os.tmpdir(), 'medtrust-uploads', folder);
+            try {
+              fs.mkdirSync(tmpDir, { recursive: true });
+              targetDir = tmpDir;
+            } catch (err2) {
+              console.error('[ERROR] Could not create upload directory:', err2.message);
+              return cb(err2);
+            }
+          }
+          cb(null, targetDir);
       },
       filename: (_req, file, cb) => {
         const ext = path.extname(file.originalname);

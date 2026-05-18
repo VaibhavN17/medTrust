@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { body } = require('express-validator');
 const { authenticate, authorize } = require('../middleware/auth');
 const { validate }                = require('../middleware/errorHandler');
-const { makeUploader }            = require('../config/s3');
+const { getUploadMiddleware }    = require('../config/upload');
 
 const auth     = require('../controllers/authController');
 const campaign = require('../controllers/campaignController');
@@ -11,11 +11,11 @@ const ngo      = require('../controllers/ngoController');
 const admin    = require('../controllers/adminController');
 const expense  = require('../controllers/expenseController');
 
-const avatarUp    = makeUploader('avatars',   5);
-const coverUp     = makeUploader('covers',    8);
-const docUp       = makeUploader('documents', 15);
-const receiptUp   = makeUploader('receipts',  10);
-const confUp      = makeUploader('conf',      10);
+const avatarUp    = getUploadMiddleware('avatars',   5);
+const coverUp     = getUploadMiddleware('covers',    8);
+const docUp       = getUploadMiddleware('documents', 15);
+const receiptUp   = getUploadMiddleware('receipts',  10);
+const confUp      = getUploadMiddleware('conf',      10);
 
 // ─── AUTH ──────────────────────────────────────────────────────────────────
 router.post('/auth/register', [
