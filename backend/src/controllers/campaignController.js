@@ -190,6 +190,8 @@ exports.update = async (req, res, next) => {
 exports.uploadDocuments = async (req, res, next) => {
   try {
     const { campaign_id } = req.params;
+    console.log('[DEBUG uploadDocuments] req.files:', req.files);
+    console.log('[DEBUG uploadDocuments] req.body:', req.body);
     if (!req.files?.length) return res.status(400).json({ message: 'No files uploaded' });
 
     const campaignResult = await db.query(
@@ -221,14 +223,17 @@ exports.uploadDocuments = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid document type' });
     }
 
-    const rows = req.files.map(f => [
-      campaign_id,
-      requestedType,
-      f.location,
-      f.originalname,
-      f.size,
-      f.mimetype,
-    ]);
+    const rows = req.files.map(f => {
+      console.log('[DEBUG] file object:', { path: f.path, location: f.location, originalname: f.originalname });
+      return [
+        campaign_id,
+        requestedType,
+        f.location || f.path,  // Use location (normalized) or fallback to path
+        f.originalname,
+        f.size,
+        f.mimetype,
+      ];
+    });
 
     // PostgreSQL bulk insert
     const placeholders = rows.map((_, idx) => {

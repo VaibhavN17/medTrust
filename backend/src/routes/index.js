@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { body } = require('express-validator');
 const { authenticate, authorize } = require('../middleware/auth');
 const { validate }                = require('../middleware/errorHandler');
-const { getUploadMiddleware }    = require('../config/upload');
+const { getUploadMiddleware, normalizeFileUrls } = require('../config/upload');
 
 const auth     = require('../controllers/authController');
 const campaign = require('../controllers/campaignController');
@@ -61,11 +61,11 @@ router.put('/campaigns/:id', authenticate,
 );
 
 router.post('/campaigns/:campaign_id/documents', authenticate, authorize('patient', 'admin'),
-  docUp.array('documents', 10), campaign.uploadDocuments
+  docUp.array('documents', 10), normalizeFileUrls, campaign.uploadDocuments
 );
 
 router.post('/campaigns/:campaign_id/updates', authenticate, authorize('patient', 'ngo', 'admin'),
-  docUp.single('image'), [
+  docUp.single('image'), normalizeFileUrls, [
     body('content').trim().notEmpty(),
     validate,
   ], campaign.postUpdate
