@@ -33,6 +33,7 @@ CREATE TABLE ngo_profiles (
   registration_no VARCHAR(100),
   website         TEXT,
   description     TEXT,
+  logo_url        TEXT,
   verified_by     INT,
   verified_at     TIMESTAMP NULL,
   FOREIGN KEY (user_id)     REFERENCES users(id) ON DELETE CASCADE,

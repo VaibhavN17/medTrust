@@ -150,9 +150,13 @@ export default function ProfilePage() {
 
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="card p-6 lg:col-span-1">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-teal-500 flex items-center justify-center text-white text-xl font-bold mb-4">
-              {(user?.name || profile.name || 'U').charAt(0).toUpperCase()}
-            </div>
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt={user?.name} className="w-14 h-14 rounded-2xl object-cover border border-slate-200 mb-4" />
+            ) : (
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-teal-500 flex items-center justify-center text-white text-xl font-bold mb-4">
+                {(user?.name || profile.name || 'U').charAt(0).toUpperCase()}
+              </div>
+            )}
 
             <h2 className="font-display text-xl font-bold text-slate-900">{user?.name || profile.name || 'User'}</h2>
             <p className="text-sm text-slate-500 mt-1">{email || 'No email'}</p>

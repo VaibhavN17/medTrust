@@ -151,3 +151,55 @@ exports.flagFraud = async (req, res, next) => {
     next(err);
   }
 };
+
+// ── Get NGO profile ───────────────────────────────────────────────────────
+exports.getProfile = async (req, res, next) => {
+  try {
+    const result = await db.query(
+      `SELECT id, user_id, org_name, registration_no, website, description, logo_url, verified_at
+         FROM ngo_profiles
+        WHERE user_id = $1`,
+      [req.user.id]
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ message: 'NGO profile not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Update NGO profile ────────────────────────────────────────────────────
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const { org_name, registration_no, website, description } = req.body;
+    const logo_url = req.file?.location || undefined;
+
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (org_name !== undefined) { updates.push(`org_name = $${paramCount++}`); values.push(org_name); }
+    if (registration_no !== undefined) { updates.push(`registration_no = $${paramCount++}`); values.push(registration_no); }
+    if (website !== undefined) { updates.push(`website = $${paramCount++}`); values.push(website); }
+    if (description !== undefined) { updates.push(`description = $${paramCount++}`); values.push(description); }
+    if (logo_url) { updates.push(`logo_url = $${paramCount++}`); values.push(logo_url); }
+
+    if (!updates.length) {
+      return res.status(400).json({ message: 'Nothing to update' });
+    }
+
+    values.push(req.user.id);
+    await db.query(
+      `UPDATE ngo_profiles SET ${updates.join(', ')} WHERE user_id = $${paramCount}`,
+      values
+    );
+
+    res.json({ message: 'NGO profile updated' });
+  } catch (err) {
+    next(err);
+  }
+};

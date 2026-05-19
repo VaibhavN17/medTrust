@@ -109,6 +109,8 @@ router.get('/ngo/pending',          authenticate, authorize('ngo','admin'), ngo.
 router.post('/ngo/verify/:id',      authenticate, authorize('ngo','admin'), confUp.single('conf'), ngo.verifyCampaign);
 router.post('/ngo/reject/:id',      authenticate, authorize('ngo','admin'), [body('reason').notEmpty(), validate], ngo.rejectCampaign);
 router.post('/ngo/flag/:campaign_id', authenticate, authorize('ngo','admin'), [body('reason').notEmpty(), validate], ngo.flagFraud);
+router.get('/ngo/profile',          authenticate, authorize('ngo','admin'), ngo.getProfile);
+router.put('/ngo/profile',          authenticate, authorize('ngo','admin'), confUp.single('logo'), ngo.updateProfile);
 
 // ─── ADMIN ────────────────────────────────────────────────────────────────
 router.get('/admin/stats',         authenticate, authorize('admin'), admin.stats);
