@@ -10,6 +10,13 @@ import DonationModal from '@/components/campaign/DonationModal';
 import api from '@/lib/api';
 import { cn, fmtINR, fmtDate, fmtRelative, progress, urgencyColor, statusColor } from '@/lib/utils';
 
+const pickImageUrl = (...candidates: unknown[]) => {
+  for (const value of candidates) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+};
+
 export default function CampaignDetailPage() {
   const { id }   = useParams<{ id: string }>();
   const [campaign, setCampaign] = useState<any>(null);
@@ -50,6 +57,23 @@ export default function CampaignDetailPage() {
   );
 
   const pct = progress(campaign.collected_amount, campaign.target_amount);
+  const firstDocumentImage = Array.isArray(campaign.documents)
+    ? campaign.documents.find(
+        (doc: any) =>
+          typeof doc?.mime_type === 'string' &&
+          doc.mime_type.startsWith('image/') &&
+          typeof doc?.file_url === 'string' &&
+          doc.file_url.trim()
+      )
+    : null;
+  const coverUrl = pickImageUrl(
+    campaign.cover_image_url,
+    campaign.coverImageUrl,
+    campaign.coverImage,
+    campaign.image_url,
+    campaign.image,
+    firstDocumentImage?.file_url
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -62,8 +86,8 @@ export default function CampaignDetailPage() {
 
             {/* Cover image */}
             <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden bg-gradient-to-br from-brand-100 to-teal-100">
-              {campaign.cover_image_url ? (
-                <Image src={campaign.cover_image_url} alt={campaign.title} fill className="object-cover" />
+              {coverUrl ? (
+                <Image src={coverUrl} alt={campaign.title} fill className="object-cover" />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="font-display text-8xl text-brand-200">{campaign.disease[0]}</span>

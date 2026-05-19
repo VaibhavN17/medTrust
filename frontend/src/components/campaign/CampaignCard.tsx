@@ -18,16 +18,30 @@ interface Campaign {
   patient_name: string;
 }
 
+const pickImageUrl = (...candidates: unknown[]) => {
+  for (const value of candidates) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+};
+
 export default function CampaignCard({ c }: { c: Campaign }) {
   const pct = progress(c.collected_amount, c.target_amount);
   const campaignPath = `/campaigns/${c.slug || c.id}`;
+  const coverUrl = pickImageUrl(
+    (c as any).cover_image_url,
+    (c as any).coverImageUrl,
+    (c as any).coverImage,
+    (c as any).image_url,
+    (c as any).image
+  );
 
   return (
     <Link href={campaignPath} className="card block overflow-hidden group hover:-translate-y-0.5 transition-transform duration-300">
       {/* Cover image */}
       <div className="relative h-44 bg-gradient-to-br from-brand-100 to-teal-100 overflow-hidden">
-        {c.cover_image_url ? (
-          <Image src={c.cover_image_url} alt={c.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+        {coverUrl ? (
+          <Image src={coverUrl} alt={c.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-6xl font-display text-brand-200">{c.disease[0]}</div>
