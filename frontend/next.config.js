@@ -6,6 +6,7 @@ const nextConfig = {
     domains: [
       'localhost',
       '127.0.0.1',
+      'res.cloudinary.com',
       'medtrust-docs.s3.ap-south-1.amazonaws.com',
       'medtrust-docs.s3.amazonaws.com',
       'via.placeholder.com',
