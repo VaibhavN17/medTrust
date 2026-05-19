@@ -178,6 +178,9 @@ exports.updateProfile = async (req, res, next) => {
     const { org_name, registration_no, website, description } = req.body;
     const logo_url = req.file?.location || undefined;
 
+    console.log('[DEBUG updateProfile] req.file:', req.file);
+    console.log('[DEBUG updateProfile] logo_url:', logo_url);
+
     const updates = [];
     const values = [];
     let paramCount = 1;
@@ -193,6 +196,9 @@ exports.updateProfile = async (req, res, next) => {
     }
 
     values.push(req.user.id);
+    console.log('[DEBUG updateProfile] SQL:', `UPDATE ngo_profiles SET ${updates.join(', ')} WHERE user_id = $${paramCount}`);
+    console.log('[DEBUG updateProfile] Values:', values);
+
     await db.query(
       `UPDATE ngo_profiles SET ${updates.join(', ')} WHERE user_id = $${paramCount}`,
       values

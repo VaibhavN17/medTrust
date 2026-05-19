@@ -106,10 +106,14 @@ export default function NGOProfilePage() {
       formDataToSend.append('website', formData.website);
       formDataToSend.append('description', formData.description);
 
-      if (fileInputRef.current?.files?.[0]) {
-        formDataToSend.append('logo', fileInputRef.current.files[0]);
+      const file = fileInputRef.current?.files?.[0];
+      if (file) {
+        console.log('[DEBUG] Uploading logo:', file.name, file.size, file.type);
+        formDataToSend.append('logo', file);
       }
 
+      console.log('[DEBUG] FormData keys:', Array.from(formDataToSend.keys()));
+      
       const { data } = await api.put('/ngo/profile', formDataToSend, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -117,19 +121,26 @@ export default function NGOProfilePage() {
         },
       });
 
+      console.log('[DEBUG] Update response:', data);
+      
       setSuccess('NGO profile updated successfully');
       setLogoPreview(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
 
-      // Refresh profile
+      // Refresh profile after short delay
+      await new Promise(resolve => setTimeout(resolve, 500));
       const { data: updatedProfile } = await api.get('/ngo/profile', {
         headers: { Authorization: `Bearer ${token}` },
       });
+      
+      console.log('[DEBUG] Updated profile:', updatedProfile);
       setProfile(updatedProfile);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update profile');
+      console.error('[DEBUG] Update error:', err);
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to update profile';
+      setError(errorMsg);
     } finally {
       setSubmitting(false);
     }
